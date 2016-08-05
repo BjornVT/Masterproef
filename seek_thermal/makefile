@@ -1,45 +1,46 @@
 .PHONY: all clean help start 
 
-CC = g++
-CFLAGS = -Wall 
-LDFLAGS =
-SOURCES = seek.cpp seek-test.cpp
+SOURCEDIR = .
+BUILDDIR = build
+SOURCES = $(wildcard $(SOURCEDIR)/*.cpp)
 OBJECTS = $(patsubst %.cpp,build/%.o,$(SOURCES))
-#OBJECTS = $(SOURCES:.cpp=.o)
+EXECUTABLE = $(BUILDDIR)/seek
+
 LIBS = -lusb-1.0 $(shell pkg-config --libs opencv)
 INCLUDE_DIRS = -I/usr/include/libusb-1.0 -I/usr/include/opencv
-EXECUTABLE = seek
-BUILDDIR = build
-RM = rm
 
+CFLAGS = -Wall 
+LDFLAGS =
+CC = g++
+RM = rm
 
 #-----------------------------------------
 
-all: dir $(BUILDDIR)/$(EXECUTABLE) $(SOURCES)
+all: dir $(EXECUTABLE) $(SOURCES)
 
 dir:
 	mkdir -p $(BUILDDIR)
 
-$(BUILDDIR)/$(EXECUTABLE): $(OBJECTS)
+$(EXECUTABLE): $(OBJECTS)
 	@echo linken
-	$(CC) $(LDFLAGS) $(OBJECTS) -o $(BUILDDIR)/$(EXECUTABLE) $(INCLUDE_DIRS) $(LIBS)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $(EXECUTABLE) $(INCLUDE_DIRS) $(LIBS)
 
-$(OBJECTS): $(BUILDDIR)/%.o : %.cpp
+$(OBJECTS): $(BUILDDIR)/%.o : $(SOURCEDIR)/%.cpp
 	@echo building $@
 	$(CC) $(CFLAGS) -c $< -o $@ $(INCLUDE_DIRS) $(LIBS)
 
-start: $(BUILDDIR)/$(EXECUTABLE)
-	@echo starting $(BUILDDIR)/$(EXECUTABLE)
+start: $(EXECUTABLE)
+	@echo starting $(EXECUTABLE)
 	@echo ------------------------------------
-	-@./$(BUILDDIR)/$(EXECUTABLE))
+	-@sudo ./$(EXECUTABLE)
 	@echo ------------------------------------
 	@echo Stopping program
 
 clean:
 	@echo cleaning
-	-@$(RM) $(BUILDDIR)/$(EXECUTABLE) $(BUILDDIR)/*.o 2>/dev/null
+	-@$(RM) $(EXECUTABLE) $(OBJECTS) 2>/dev/null
 
 help:
-	@echo Targets are: all $(OBJECTS) start clean help
+	@echo Targets are: all $(EXECUTABLE) $(OBJECTS) start clean help
 	
 	

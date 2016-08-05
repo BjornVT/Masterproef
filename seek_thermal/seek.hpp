@@ -28,7 +28,7 @@
 using namespace std;
 namespace LibSeek {
 	
-class camint {
+class caminterface {
 	private:
 		struct libusb_context * ctx = NULL;
 		struct libusb_device_handle * handle = NULL;
@@ -36,8 +36,8 @@ class camint {
 		struct libusb_device_descriptor desc;
 
 	public:
-		camint();
-		~camint();
+		caminterface();
+		~caminterface();
 		void init();
 		void exit();
 		void vendor_transfer(bool direction, uint8_t req, uint16_t value,
@@ -48,15 +48,20 @@ class camint {
 
 class seekCam {
 	private:
-		class camint _cam;
+		class caminterface _cam;
 		cv::Mat calib;
-		vector<tuple<int,int,int>> bp_list;
+		int level_shift = 0;
+		
+		void buildBPList();
+		void filterBP(cv::Mat frame);
 		
 	public:
 		seekCam();
 		~seekCam();
 		cv::Mat frame_acquire();
 		cv::Mat * getCalib();
+		vector<cv::Point> bp_list;
+		
 		
 };
 

@@ -4,17 +4,17 @@ using namespace std;
 using namespace cv;
 using namespace LibSeek;
 
-camint::camint()
+caminterface::caminterface()
 {
 	init();
 }
 
-camint::~camint()
+caminterface::~caminterface()
 {
 	exit();
 }
 
-void camint::init()
+void caminterface::init()
 {
 	int res;
 
@@ -256,7 +256,7 @@ void camint::init()
 	}
 }
 
-void camint::exit()
+void caminterface::exit()
 {
 	int res;
 
@@ -284,7 +284,7 @@ void camint::exit()
 	}
 }
 
-void camint::vendor_transfer(bool direction,
+void caminterface::vendor_transfer(bool direction,
  uint8_t req, uint16_t value, uint16_t index, vector<uint8_t> & data,
  int timeout)
 {
@@ -343,7 +343,7 @@ void camint::vendor_transfer(bool direction,
 	}
 }
 
-void camint::frame_get_one(uint8_t * frame)
+void caminterface::frame_get_one(uint8_t * frame)
 {
 	int res;
 
@@ -377,6 +377,45 @@ void camint::frame_get_one(uint8_t * frame)
 
 seekCam::seekCam()
 {
+	/* This function is going to take frame in util he gets a calib frame.
+	 * On this frame it is going to search for blank pixels to build a list for the interpolation
+	 * It's also goning to find the mean value for the level shift
+	 */
+	 
+	uint8_t data[WIDTH*HEIGHT*2] = {0};
+	 
+	while (true) {
+		_cam.frame_get_one(data);
+
+		uint8_t status = data[20];
+		bugprintf("Status: %d\n", status);
+		
+		uint16_t img[HEIGHT*WIDTH];
+
+		if (status == 1) {
+			bugprintf("Calib\n");
+			for (int y = 0; y < HEIGHT; y++) {
+				for (int x = 0; x < WIDTH; x++) {
+					uint16_t v = reinterpret_cast<uint16_t*>(data)[y*WIDTH+x];
+					v = le16toh(v);
+					
+					img[y * WIDTH + x] = v;
+				}
+			}	
+			Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
+			frame.copyTo(*getCalib());
+			
+			/* Calculating level shift */
+			cv::Scalar mean = cv::mean(frame);
+			level_shift = int(mean[0]);
+			
+			/* Builing Black spot list */
+			buildBPList();
+			
+			break;
+		}
+	}
+	 
 }
 
 seekCam::~seekCam()
@@ -423,7 +462,7 @@ cv::Mat seekCam::frame_acquire()
 					a = int(v) - int(cal->at<uint16_t>(y, x));
 					
 					// level shift
-					a += 7084;
+					a += level_shift;
 
 					if (a < 0) {
 						a = 0;
@@ -437,7 +476,8 @@ cv::Mat seekCam::frame_acquire()
 			}
 			
 			Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
-						
+			
+			filterBP(frame);
 
 			return frame;
 		}
@@ -468,4 +508,34 @@ Mat *seekCam::getCalib()
 	return &calib;
 }
 
+void seekCam::buildBPList()
+{
+	for(int y=0; y<calib.rows; y++){
+		for(int x=0; x<calib.cols; x++){
+			if(calib.at<uint16_t>(y, x) == 0){
+				bp_list.push_back(Point(x, y));
+			}
+		}
+	}
+}
 
+void seekCam::filterBP(Mat frame)
+{
+	for(int i=0; i<bp_list.size(); i++){
+		float val;
+		Point px = bp_list[i];
+		
+		// load the four neighboring pixels
+		const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
+		const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
+		const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
+		const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+		
+		
+		val = p1 * 0.25 + p2 * 0.25 + p3 * 0.25 + p4 * 0.25;
+		
+		
+		frame.at<uint16_t>(px) = uint16_t(val) ;
+		
+	}
+}

@@ -9,7 +9,7 @@ EXECUTABLE = $(BUILDDIR)/seek
 LIBS = -lusb-1.0 $(shell pkg-config --libs opencv)
 INCLUDE_DIRS = -I/usr/include/libusb-1.0 -I/usr/include/opencv
 
-CFLAGS = -Wall 
+CFLAGS = -Wall
 LDFLAGS =
 CC = g++
 RM = rm

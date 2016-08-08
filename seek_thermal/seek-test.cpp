@@ -11,30 +11,42 @@ using namespace cv;
 
 int shift=4;
 
-int main() {
+int main(int argc, char** argv) {
 	LibSeek::seekCam seek;
 	Mat frame;
 	Mat frame2;
+	VideoCapture cap;
 	
-	namedWindow( "LWIR",  WINDOW_NORMAL);
-	createTrackbar( "shift", "LWIR", &shift, 5, 0 );
-	namedWindow( "RGB",  WINDOW_NORMAL);
 	
-	VideoCapture cap(1);
+	if(argc > 2){
+		throw runtime_error("To many arg");
+		exit(1);
+	}
+	else if (argc == 1){
+		cap.open(0);
+	}
+	else {
+		cap.open(argv[1]);
+	}
+	
 	// check of webcam device number is correct
 	if(!cap.isOpened())
 	{
 		throw runtime_error("Failed to open RGB camera");
 		exit(1);
 	}
+	cap.set(CV_CAP_PROP_FPS, 0); //Hack so the VideoCapture doesn't fill
 	
+	
+	namedWindow( "LWIR",  WINDOW_NORMAL);
+	createTrackbar( "shift", "LWIR", &shift, 5, 0 );
+	namedWindow( "RGB",  WINDOW_NORMAL);
 
 	while(true) {
 	//for(int i=0; i<200; i++){
-		for(int i=0; i<10; i++){
-			cap >> frame2;
-		}
+		cap.grab();
 		frame = seek.frame_acquire();
+		cap.retrieve(frame2);
 		
 		for(int y=0; y<frame.rows; y++){
 			for(int x=0; x<frame.cols; x++){

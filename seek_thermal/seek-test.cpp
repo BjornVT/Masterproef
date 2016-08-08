@@ -1,21 +1,28 @@
 #include <stdio.h>
 #include <string.h>
+#include <chrono>
+#include <signal.h>
 #include <opencv2/highgui/highgui.hpp>
 
 #include "seek.hpp"
 #include "debug.h"
 
+#define FPS 15
+
 using namespace std;
 using namespace cv;
 
-int shift=4;
+bool running = true;
+const chrono::milliseconds frameFreq(999/FPS);
+
+void quitProgram(int sig);
 
 int main(int argc, char** argv) {
 	LibSeek::seekCam seek;
 	Mat frame;
 	Mat frame2;
 	VideoCapture cap;
-	
+	chrono::time_point<chrono::high_resolution_clock> start, end;
 	
 	if(argc > 2){
 		throw runtime_error("To many arg");
@@ -36,28 +43,26 @@ int main(int argc, char** argv) {
 	}
 	cap.set(CV_CAP_PROP_FPS, 0); //Hack so the VideoCapture buffer doesn't fill
 	
+	signal(SIGTERM, &quitProgram);
+	//signal(SIGABRT, &quit);
+	signal(SIGINT, &quitProgram);
+	
+	cout << endl;
 	namedWindow( "LWIR",  WINDOW_NORMAL);
-	createTrackbar( "shift", "LWIR", &shift, 5, 0 );
 	namedWindow( "RGB",  WINDOW_NORMAL);
 
-	while(true) {
+	while(running) {
 	//for(int i=0; i<200; i++){
+		start = chrono::high_resolution_clock::now();
 		cap.grab();
 		seek.grab();
 		cap.retrieve(frame2);
 		frame = seek.retrieve();
 		
-		for(int y=0; y<frame.rows; y++){
-			for(int x=0; x<frame.cols; x++){
-				frame.at<uint16_t>(Point(x, y)) = frame.at<uint16_t>(Point(x, y))<<shift;
-			}
-		}
-
-		frame.convertTo(frame, CV_8UC1, 1.0/256.0 );
+		frame.convertTo(frame, CV_8UC1, 1.0/32.0);
 		equalizeHist( frame, frame ); 
-		//transpose(frame, frame);  
- 		//flip(frame, frame,0);
 		
+		/*
 		Mat tot(frame2.rows, frame.cols+frame2.cols, CV_8UC3, 0.0);
 		
 		Mat left(tot, Rect(0, 0, frame2.cols, frame2.rows)); // Copy constructor
@@ -66,18 +71,28 @@ int main(int argc, char** argv) {
 		cv::cvtColor(frame, frame, cv::COLOR_GRAY2BGR);
 		Mat right(tot, Rect(frame2.cols, 0, frame.cols, frame.rows)); // Copy constructor
 		frame.copyTo(right);
-		
+		*/
 
-		imshow( "LWIR", tot );
-		imwrite( "res2.png", tot );
-		imshow( "RGB", frame );
+		imshow( "RGB", frame2 );
+		//imwrite( "res2.png", tot );
+		imshow( "LWIR", frame );
 		
 		frame.release();
 		frame2.release();
-		tot.release();
+		//tot.release();
 		
-		waitKey(1000/30.0);
-		//waitkey(0);
+		//Trying to get sort of a steady framerate
+		end = chrono::high_resolution_clock::now();
+		chrono::milliseconds toWait = chrono::duration_cast<chrono::milliseconds>(frameFreq - (end - start));
+		//cout << toWait.count() << endl;
+		waitKey(frameFreq.count());
 	}
 	
+	seek.exit();
+	
+}
+
+void quitProgram(int sig)
+{
+	running = false;
 }

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <cstdint>
 #include <chrono>
 #include <signal.h>
 #include <opencv2/highgui/highgui.hpp>
@@ -47,9 +48,9 @@ int main(int argc, char** argv) {
 	//signal(SIGABRT, &quit);
 	signal(SIGINT, &quitProgram);
 	
-	cout << endl;
 	namedWindow( "LWIR",  WINDOW_NORMAL);
 	namedWindow( "RGB",  WINDOW_NORMAL);
+	cout << endl;
 
 	while(running) {
 	//for(int i=0; i<200; i++){
@@ -88,7 +89,7 @@ int main(int argc, char** argv) {
 		waitKey(frameFreq.count());
 	}
 	
-	seek.exit();
+	//seek.exit();
 	
 }
 

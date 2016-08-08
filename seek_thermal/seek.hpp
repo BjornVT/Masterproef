@@ -2,20 +2,8 @@
 #define __SEEK_HPP_
 
 #include <opencv2/opencv.hpp>
-
-#include <cinttypes>
-#include <cstdio>
-#include <cassert>
-#include <cstring>
-#include <sstream>
-#include <fstream>
 #include <stdexcept>
-#include <thread>
-#include <algorithm>
-#include <fstream>
-#include <chrono>
-#include <iomanip>
-#include <tuple>
+#include <cstdint>
 #include <vector>
 #include <endian.h>
 #include <libusb.h>

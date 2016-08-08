@@ -14,6 +14,17 @@ caminterface::~caminterface()
 	exit();
 }
 
+inline void printData(vector<uint8_t> data)
+{
+	if(DEBUG){
+		fprintf(stderr, " [");
+		for (uint i = 0; DEBUG && i < data.size(); i++) {
+			fprintf(stderr, " %2x", data[i]);
+		}
+		fprintf(stderr, " ]\n");
+	}
+}
+
 void caminterface::init()
 {
 	int res;
@@ -37,7 +48,7 @@ void caminterface::init()
 		throw runtime_error("No devices");
 	}
 
-	bugprintf("\nDevice Count : %zd\n-------------------------------\n",cnt);
+	bugprintf("Device Count : %zd\n",cnt);
 
 	bool found(false);
 	for (int idx_dev = 0; idx_dev < cnt; idx_dev++) {
@@ -67,7 +78,7 @@ void caminterface::init()
 		throw runtime_error("Seek not found");
 	}
 
-	bugprintf("\nDevice found\n");
+	bugprintf("Device found\n");
 
 	int config2;
 	res = libusb_get_configuration(handle, &config2);
@@ -75,7 +86,7 @@ void caminterface::init()
 		libusb_free_device_list(devs, 1);
 		throw runtime_error("Couldn't get device configuration");
 	}
-	bugprintf("\nConfigured value : %d\n",config2);
+	bugprintf("Configured value : %d\n",config2);
 
 	if (config2 != 1) {
 		res = libusb_set_configuration(handle, 1);
@@ -91,17 +102,18 @@ void caminterface::init()
 	if (res < 0) {
 		throw runtime_error("Couldn't claim interface");
 	}
-	bugprintf("\nClaimed Interface\n");
+	bugprintf("Claimed Interface\n");
 
 	// device setup sequence
-
 	try {
+		bugprintf("Setup sequence: start\n");
 		vector<uint8_t> data = {0x01};
 		char req(Request::TARGET_PLATFORM);
 		vendor_transfer(0, req, 0, 0, data);
 	}
 	catch (...) {
 		// Try deinit device and repeat.
+		bugprintf("Setup sequence: deinit\n");
 		vector<uint8_t> data = { 0x00, 0x00 };
 		{
 			char req(Request::SET_OPERATION_MODE);
@@ -117,52 +129,43 @@ void caminterface::init()
 	}
 
 	{
+		bugprintf("Setup sequence: Set operation mode\n");
 		char req(Request::SET_OPERATION_MODE);
 		vector<uint8_t> data = {0x00, 0x00};
 		vendor_transfer(0, req, 0, 0, data);
 	}
 
 	{
+		bugprintf("Setup sequence: Get firmware info\n");
 		char req(Request::GET_FIRMWARE_INFO);
 		vector<uint8_t> data(4);
 		vendor_transfer(1, req, 0, 0, data);
-		bugprintf("Response: ");
-		for (uint i = 0; i < data.size(); i++) {
-			printf(" %2x", data[i]);
-		}
-		bugprintf(" \n");
 	}
 
 	{
+		bugprintf("Setup sequence: Read chip ID\n");
 		char req(Request::READ_CHIP_ID);
 		vector<uint8_t> data(12);
 		vendor_transfer(1, req, 0, 0, data);
-		bugprintf("Response: ");
-		for (uint i = 0; i < data.size(); i++) {
-			printf(" %2x", data[i]);
-		}
-		bugprintf(" \n");
 	}
 
 
 	{
+		bugprintf("Setup sequence: Set factory settings features\n");
 		char req(Request::SET_FACTORY_SETTINGS_FEATURES);
 		vector<uint8_t> data = { 0x20, 0x00, 0x30, 0x00, 0x00, 0x00 };
 		vendor_transfer(0, req, 0, 0, data);
 	}
 
 	{
+		bugprintf("Setup sequence: Get factory settings\n");
 		char req(Request::GET_FACTORY_SETTINGS);
 		vector<uint8_t> data(64);
 		vendor_transfer(1, req, 0, 0, data);
-		bugprintf("Response: ");
-		for (uint i = 0; i < data.size(); i++) {
-			printf(" %2x", data[i]);
-		}
-		bugprintf(" \n");
 	}
 
 	{
+		bugprintf("Setup sequence: Set factory settings features\n");
 		char req(Request::SET_FACTORY_SETTINGS_FEATURES);
 		vector<uint8_t> data = { 0x20, 0x00, 0x50, 0x00, 0x00, 0x00 };
 		vendor_transfer(0, req, 0, 0, data);
@@ -170,17 +173,14 @@ void caminterface::init()
 
 
 	{
+		bugprintf("Setup sequence: Get factory settings\n");
 		char req(Request::GET_FACTORY_SETTINGS);
 		vector<uint8_t> data(64);
 		vendor_transfer(1, req, 0, 0, data);
-		bugprintf("Response: ");
-		for (uint i = 0; i < data.size(); i++) {
-			printf(" %2x", data[i]);
-		}
-		bugprintf(" \n");
 	}
 
 	{
+		bugprintf("Setup sequence: Set factory settings features\n");
 		char req(Request::SET_FACTORY_SETTINGS_FEATURES);
 		vector<uint8_t> data = { 0x0c, 0x00, 0x70, 0x00, 0x00, 0x00 };
 		vendor_transfer(0, req, 0, 0, data);
@@ -188,78 +188,64 @@ void caminterface::init()
 
 
 	{
+		bugprintf("Setup sequence: Get factory settings\n");
 		char req(Request::GET_FACTORY_SETTINGS);
 		vector<uint8_t> data(24);
 		vendor_transfer(1, req, 0, 0, data);
-		bugprintf("Response: ");
-		for (uint i = 0; i < data.size(); i++) {
-			printf(" %2x", data[i]);
-		}
-		bugprintf(" \n");
 	}
 
 	{
+		bugprintf("Setup sequence: Set factory settings features\n");
 		char req(Request::SET_FACTORY_SETTINGS_FEATURES);
 		vector<uint8_t> data = { 0x06, 0x00, 0x08, 0x00, 0x00, 0x00 };
 		vendor_transfer(0, req, 0, 0, data);
 	}
 
 	{
+		bugprintf("Setup sequence: Get factory settings\n");
 		char req(Request::GET_FACTORY_SETTINGS);
 		vector<uint8_t> data(12);
 		vendor_transfer(1, req, 0, 0, data);
-		bugprintf("Response: ");
-		for (uint i = 0; i < data.size(); i++) {
-			printf(" %2x", data[i]);
-		}
-		bugprintf(" \n");
 	}
 
 	{
+		bugprintf("Setup sequence: Set image processing mode\n");
 		char req(Request::SET_IMAGE_PROCESSING_MODE);
 		vector<uint8_t> data = { 0x08, 0x00 };
 		vendor_transfer(0, req, 0, 0, data);
 	}
 
 	{
+		bugprintf("Setup sequence: Get operation mode\n");
 		char req(Request::GET_OPERATION_MODE);
 		vector<uint8_t> data(2);
 		vendor_transfer(1, req, 0, 0, data);
-		bugprintf("Response: ");
-		for (uint i = 0; i < data.size(); i++) {
-			printf(" %2x", data[i]);
-		}
-		bugprintf(" \n");
 	}
 
 	{
+		bugprintf("Setup sequence: Set image processing mode\n");
 		char req(Request::SET_IMAGE_PROCESSING_MODE);
 		vector<uint8_t> data = { 0x08, 0x00 };
 		vendor_transfer(0, req, 0, 0, data);
 	}
 
 	{
+		bugprintf("Setup sequence: Set operation mode\n");
 		char req(Request::SET_OPERATION_MODE);
 		vector<uint8_t> data = { 0x01, 0x00 };
 		vendor_transfer(0, req, 0, 0, data);
 	}
 
 	{
+		bugprintf("Setup sequence: Get operation mode\n");
 		char req(Request::GET_OPERATION_MODE);
 		vector<uint8_t> data(2);
 		vendor_transfer(1, req, 0, 0, data);
-		bugprintf("Response: ");
-		for (uint i = 0; i < data.size(); i++) {
-			printf(" %2x", data[i]);
-		}
-		bugprintf(" \n");
 	}
 }
 
 void caminterface::exit()
 {
-	int res;
-
 	if (handle == NULL) {
 		return;
 	}
@@ -273,7 +259,7 @@ void caminterface::exit()
 	}
 
 	if (handle != NULL) {
-		res = libusb_release_interface(handle, 0);
+		libusb_release_interface(handle, 0);
 		libusb_close(handle);
 		handle = NULL;
 	}
@@ -303,43 +289,30 @@ void caminterface::vendor_transfer(bool direction,
 	uint16_t wLength = data.size();
 	if (!direction) {
 		// to device
-		
-		if(DEBUG){
-			bugprintf("ctrl_transfer(0x%x, 0x%x, 0x%x, 0x%x, %d)",
+		bugprintf("ctrl_transfer to dev(0x%x, 0x%x, 0x%x, 0x%x, %d)",
 			 bmRequestType, bRequest, wValue, wIndex, wLength);
-			fprintf(stderr, " [");
-			for (int i = 0; i < wLength; i++) {
-				fprintf(stderr, " %02x", data[i]);
-			}
-			fprintf(stderr, " ]\n");
-		}
-
+		
 		res = libusb_control_transfer(handle, bmRequestType, bRequest,
-		 wValue, wIndex, aData, wLength, timeout);
+			wValue, wIndex, aData, wLength, timeout);
 
 		if (res != wLength) {
 			fprintf(stderr, "\x1B[31;1mBad returned length: %d\x1B[0m\n", res);
 		}
 		
+		printData(data);
 	}
 	else {
 		// from device
-		bugprintf("ctrl_transfer(0x%x, 0x%x, 0x%x, 0x%x, %d)",
-		 bmRequestType, bRequest, wValue, wIndex, wLength);
+		bugprintf("ctrl_transfer from dev(0x%x, 0x%x, 0x%x, 0x%x, %d)",
+			bmRequestType, bRequest, wValue, wIndex, wLength);
 		res = libusb_control_transfer(handle, bmRequestType, bRequest,
-		 wValue, wIndex, aData, wLength, timeout);
-		 
+			wValue, wIndex, aData, wLength, timeout);
+		
 		if (res != wLength) {
 			fprintf(stderr, "\x1B[31;1mBad returned length: %d\x1B[0m\n", res);
 		}
 		
-		if(DEBUG){
-			fprintf(stderr, " -> [");
-			for (auto & x: data) {
-				fprintf(stderr, " %02x", x);
-			}
-			fprintf(stderr, "]\n");
-		}
+		printData(data);
 	}
 }
 
@@ -404,16 +377,19 @@ seekCam::seekCam()
 			frame.copyTo(*getCalib());
 			
 			/* Calculating level shift */
+			bugprintf("Get mean of calib frame\n");
 			cv::Scalar mean = cv::mean(frame);
 			level_shift = int(mean[0]);
 			
 			/* Builing Black spot list */
+			bugprintf("Building BP List\n");
 			buildBPList();
 			
 			break;
 		}
 	}
-	 
+	
+	bugprintf("Init seek done\n-------------------------------\n");
 }
 
 seekCam::~seekCam()
@@ -461,14 +437,14 @@ bool seekCam::grab()
 
 cv::Mat seekCam::retrieve()
 {
-	uint16_t img[HEIGHT*WIDTH];
+	uint16_t img[HEIGHT * WIDTH];
 	Mat *cal = getCalib();
 	
 	for (int y = 0; y < HEIGHT; y++) {
 		for (int x = 0; x < WIDTH; x++) {
 			int a;
 
-			uint16_t v = reinterpret_cast<uint16_t*>(data)[y*WIDTH+x];
+			uint16_t v = reinterpret_cast<uint16_t*>(data)[y * WIDTH + x];
 			v = le16toh(v);
 			a = int(v) - int(cal->at<uint16_t>(y, x));
 					
@@ -571,7 +547,7 @@ void seekCam::buildBPList()
 
 void seekCam::filterBP(Mat frame)
 {
-	for(int i=0; i<bp_list.size(); i++){
+	for(unsigned int i=0; i<bp_list.size(); i++){
 		float val;
 		Point px = bp_list[i];
 		

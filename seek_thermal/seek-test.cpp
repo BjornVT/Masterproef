@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
 	Mat frame;
 	Mat frame2;
 	VideoCapture cap;
-	chrono::time_point<chrono::high_resolution_clock> start, end;
+	//chrono::time_point<chrono::high_resolution_clock> start, end;
 	
 	if(argc > 2){
 		throw runtime_error("To many arg");
@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 
 	while(running) {
 	//for(int i=0; i<200; i++){
-		start = chrono::high_resolution_clock::now();
+		//start = chrono::high_resolution_clock::now();
 		cap.grab();
 		seek.grab();
 		cap.retrieve(frame2);
@@ -82,8 +82,8 @@ int main(int argc, char** argv) {
 		//tot.release();
 		
 		//Trying to get sort of a steady framerate
-		end = chrono::high_resolution_clock::now();
-		chrono::milliseconds toWait = chrono::duration_cast<chrono::milliseconds>(frameFreq - (end - start));
+		//end = chrono::high_resolution_clock::now();
+		//chrono::milliseconds toWait = chrono::duration_cast<chrono::milliseconds>(frameFreq - (end - start));
 		//cout << toWait.count() << endl;
 		waitKey(frameFreq.count());
 	}

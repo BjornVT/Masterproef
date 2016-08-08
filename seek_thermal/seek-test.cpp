@@ -8,7 +8,6 @@
 using namespace std;
 using namespace cv;
 
-
 int shift=4;
 
 int main(int argc, char** argv) {
@@ -35,8 +34,7 @@ int main(int argc, char** argv) {
 		throw runtime_error("Failed to open RGB camera");
 		exit(1);
 	}
-	cap.set(CV_CAP_PROP_FPS, 0); //Hack so the VideoCapture doesn't fill
-	
+	cap.set(CV_CAP_PROP_FPS, 0); //Hack so the VideoCapture buffer doesn't fill
 	
 	namedWindow( "LWIR",  WINDOW_NORMAL);
 	createTrackbar( "shift", "LWIR", &shift, 5, 0 );
@@ -45,8 +43,9 @@ int main(int argc, char** argv) {
 	while(true) {
 	//for(int i=0; i<200; i++){
 		cap.grab();
-		frame = seek.frame_acquire();
+		seek.grab();
 		cap.retrieve(frame2);
+		frame = seek.retrieve();
 		
 		for(int y=0; y<frame.rows; y++){
 			for(int x=0; x<frame.cols; x++){
@@ -56,14 +55,10 @@ int main(int argc, char** argv) {
 
 		frame.convertTo(frame, CV_8UC1, 1.0/256.0 );
 		equalizeHist( frame, frame ); 
-		transpose(frame, frame);  
- 		flip(frame, frame,0);
- 		
- 		cout << frame.cols << " " << frame.rows << endl;
- 		cout << frame2.cols << " " << frame2.rows << endl;
+		//transpose(frame, frame);  
+ 		//flip(frame, frame,0);
 		
-		
-		Mat tot(frame2.rows, frame.cols+frame2.cols, CV_8UC3);
+		Mat tot(frame2.rows, frame.cols+frame2.cols, CV_8UC3, 0.0);
 		
 		Mat left(tot, Rect(0, 0, frame2.cols, frame2.rows)); // Copy constructor
 		frame2.copyTo(left);

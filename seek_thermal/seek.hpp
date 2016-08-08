@@ -51,13 +51,15 @@ class seekCam {
 		class caminterface _cam;
 		cv::Mat calib;
 		int level_shift = 0;
-		
+		uint8_t data[WIDTH*HEIGHT*2] = {0};
 		void buildBPList();
 		void filterBP(cv::Mat frame);
 		
 	public:
 		seekCam();
 		~seekCam();
+		bool grab();
+		cv::Mat retrieve();
 		cv::Mat frame_acquire();
 		cv::Mat * getCalib();
 		vector<cv::Point> bp_list;

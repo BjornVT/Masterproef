@@ -382,8 +382,6 @@ seekCam::seekCam()
 	 * It's also goning to find the mean value for the level shift
 	 */
 	 
-	uint8_t data[WIDTH*HEIGHT*2] = {0};
-	 
 	while (true) {
 		_cam.frame_get_one(data);
 
@@ -422,10 +420,73 @@ seekCam::~seekCam()
 {
 }
 
+bool seekCam::grab()
+{
+	while (true) {
+		_cam.frame_get_one(data);
+
+		uint8_t status = data[20];
+		bugprintf("Status: %d\n", status);
+		
+		if (status == 1) {
+			bugprintf("Calib\n");
+			
+			uint16_t img[HEIGHT*WIDTH];
+			for (int y = 0; y < HEIGHT; y++) {
+				for (int x = 0; x < WIDTH; x++) {
+					uint16_t v = reinterpret_cast<uint16_t*>(data)[y*WIDTH+x];
+					v = le16toh(v);
+					
+					img[y * WIDTH + x] = v;
+				}
+			}	
+			Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
+			frame.copyTo(*getCalib());
+			continue;
+		}
+
+		if(status == 3){
+			return true;
+		}
+		
+		bugprintf("Bad status: %d\n", status);
+	}
+}
+
+cv::Mat seekCam::retrieve()
+{
+	uint16_t img[HEIGHT*WIDTH];
+	Mat *cal = getCalib();
+	
+	for (int y = 0; y < HEIGHT; y++) {
+		for (int x = 0; x < WIDTH; x++) {
+			int a;
+
+			uint16_t v = reinterpret_cast<uint16_t*>(data)[y*WIDTH+x];
+			v = le16toh(v);
+			a = int(v) - int(cal->at<uint16_t>(y, x));
+					
+			// level shift
+			a += level_shift;
+
+			if (a < 0) {
+				a = 0;
+			}
+			if (a > 0xFFFF) {
+				a = 0xFFFF;
+			}
+
+			img[y * WIDTH + x] = (uint16_t)a;
+		}
+	}
+	Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
+	filterBP(frame);
+
+	return frame;
+}
+
 cv::Mat seekCam::frame_acquire()
 {
-	uint8_t data[WIDTH*HEIGHT*2] = {0};
-		
 	while (true) {
 		_cam.frame_get_one(data);
 
@@ -483,23 +544,6 @@ cv::Mat seekCam::frame_acquire()
 		}
 		
 		bugprintf("Bad status: %d\n", status);
-		
-		
-/*
-		for (int idx_bp = 0; idx_bp < m->bpc_list.size(); idx_bp++) {
-			int x, y, ik;
-			tie(x, y, ik) = m->bpc_list[idx_bp];
-			//intf("Correcting %d %d/%d\n", idx_bp, x, y);
-			auto cnt = m->bpc_kinds[ik];
-			float v = 0;
-			for (int idx_pt = 0; idx_pt < cnt.size(); idx_pt++) {
-				int dx, dy, iw;
-				tie(dx, dy, iw) = cnt[idx_pt];
-				v += data[(y+dy)*w+(x+dx)] * m->bpc_weights[iw];
-			}
-			data[y*w+x] = v;
-		}
-*/
 	}
 }
 

@@ -58,6 +58,7 @@ class seekCam {
 	public:
 		seekCam();
 		~seekCam();
+		void exit();
 		bool grab();
 		cv::Mat retrieve();
 		cv::Mat frame_acquire();

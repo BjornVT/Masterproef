@@ -418,6 +418,12 @@ seekCam::seekCam()
 
 seekCam::~seekCam()
 {
+	_cam.exit();
+}
+
+void seekCam::exit()
+{
+	_cam.exit();
 }
 
 bool seekCam::grab()

@@ -299,7 +299,7 @@ void caminterface::vendor_transfer(bool direction,
 			fprintf(stderr, "\x1B[31;1mBad returned length: %d\x1B[0m\n", res);
 		}
 		
-		printData(data);
+		//printData(data);
 	}
 	else {
 		// from device
@@ -312,7 +312,7 @@ void caminterface::vendor_transfer(bool direction,
 			fprintf(stderr, "\x1B[31;1mBad returned length: %d\x1B[0m\n", res);
 		}
 		
-		printData(data);
+		//printData(data);
 	}
 }
 
@@ -359,12 +359,9 @@ seekCam::seekCam()
 	while (true) {
 		_cam.frame_get_one(data);
 
-		uint8_t status = data[20];
-		bugprintf("Status: %d\n", status);
-		
-		uint16_t img[HEIGHT*WIDTH];
+		bugprintf("Status: %d\n", data[20]);
 
-		if (status == 1) {
+		if (data[20] == 1) {
 			bugprintf("Calib\n");
 			Mat *cal = getCalib();		
 			Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
@@ -403,10 +400,9 @@ bool seekCam::grab()
 	while (true) {
 		_cam.frame_get_one(data);
 
-		uint8_t status = data[20];
-		bugprintf("Status: %d\n", status);
+		bugprintf("Status: %d\n", data[20]);
 		
-		if (status == 1) {
+		if (data[20] == 1) {
 			bugprintf("Calib\n");
 			Mat *cal = getCalib();
 			cal->release();			
@@ -417,7 +413,7 @@ bool seekCam::grab()
 			continue;
 		}
 
-		if(status == 3){
+		if(data[20] == 3){
 			return true;
 		}
 		
@@ -470,24 +466,24 @@ void seekCam::filterBP(Mat frame)
 		
 		if(px.x>0 && px.x<WIDTH-1 && px.y>0 && px.y<HEIGHT-1){
 			// load the four neighboring pixels
-			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
-			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
-			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
-			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
+			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p1 * 0.25 + p2 * 0.25 + p3 * 0.25 + p4 * 0.25;
 		}
 		else if(px.x==WIDTH-1 && px.y==0){
 			//upper right corner
-			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
-			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
+			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
 			
 			val = p1 * 0.5 + p3 * 0.5;
 		}
 		else if(px.x==WIDTH-1 && px.y==HEIGHT-1){
 			//lower right corner
-			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
-			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p1 * 0.5 + p4 * 0.5;
 		}
@@ -495,46 +491,46 @@ void seekCam::filterBP(Mat frame)
 			//right side
 			//This side is a full line of pixels
 			//Take corners instead of sides
-			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
-			const uint16_t p3 = frame.at<uint16_t>(Point(px.x-1, px.y+1));
-			const uint16_t p4 = frame.at<uint16_t>(Point(px.x-1, px.y-1));
+			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x-1);
+			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x-1);
 			
 			val = p1 * 0.5 + p3 * 0.25 + p4 * 0.25;
 		}
 		else if(px.x==0 && px.y==HEIGHT-1){
 			//lower left corner
-			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
-			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p2 * 0.5 + p4 * 0.5;
 		}
 		else if(px.y==HEIGHT-1){
 			//bottom side
-			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
-			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
-			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p1 * 0.25 + p2 * 0.25 + p4 * 0.5;
 		}
 		else if(px.x==0 && px.y==0){
 			//Upper left corner
-			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
-			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
+			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
 			val = p2 * 0.5 + p3 * 0.5;
 		}
 		else if(px.x==0){
 			//left side
-			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
-			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
-			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
+			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p2 * 0.5 + p3 * 0.25 + p4 * 0.25;
 		}
 		else if(px.y==0){
 			//top side
-			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
-			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
-			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
+			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
 			
 			val = p1 * 0.25 + p2 * 0.25 + p3 * 0.5;
 		}

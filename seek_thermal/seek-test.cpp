@@ -50,18 +50,20 @@ int main(int argc, char** argv) {
 	
 	namedWindow( "LWIR",  WINDOW_NORMAL);
 	namedWindow( "RGB",  WINDOW_NORMAL);
+	//namedWindow( "Cal",  WINDOW_NORMAL);
 	cout << endl;
 
 	while(running) {
-	//for(int i=0; i<200; i++){
+	//for(int z=0; z<200; z++){
 		//start = chrono::high_resolution_clock::now();
 		cap.grab();
 		seek.grab();
 		cap.retrieve(frame2);
-		frame = seek.retrieve();
+		frame = seek.retrieve();	
 		
 		frame.convertTo(frame, CV_8UC1, 1.0/32.0);
-		equalizeHist( frame, frame ); 
+		//frame.convertTo(frame, CV_8UC1, 1.0/256.0);
+		equalizeHist(frame, frame); 
 		
 		/*
 		Mat tot(frame2.rows, frame.cols+frame2.cols, CV_8UC3, 0.0);
@@ -87,10 +89,8 @@ int main(int argc, char** argv) {
 		//chrono::milliseconds toWait = chrono::duration_cast<chrono::milliseconds>(frameFreq - (end - start));
 		//cout << toWait.count() << endl;
 		waitKey(frameFreq.count());
+		//waitKey(0);
 	}
-	
-	//seek.exit();
-	
 }
 
 void quitProgram(int sig)

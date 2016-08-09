@@ -323,7 +323,8 @@ void caminterface::frame_get_one(uint8_t * frame)
 	int size = WIDTH * HEIGHT;
 
 	{ // request a frame
-		vector<uint8_t> data = { uint8_t(size & 0xff), uint8_t((size>>8)&0xff), 0, 0 };
+		//vector<uint8_t> data = { uint8_t(size & 0xff), uint8_t((size>>8)&0xff), 0, 0 };
+		vector<uint8_t> data = { 0xC0, 0x7E, 0, 0 };
 		vendor_transfer(0, 0x53, 0, 0, data);
 	}
 	int bufsize = size * sizeof(uint16_t);
@@ -380,6 +381,7 @@ seekCam::seekCam()
 			bugprintf("Get mean of calib frame\n");
 			cv::Scalar mean = cv::mean(frame);
 			level_shift = int(mean[0]);
+			//level_shift = 8000;
 			
 			/* Builing Black spot list */
 			bugprintf("Building BP List\n");
@@ -454,17 +456,22 @@ cv::Mat seekCam::retrieve()
 			if (a < 0) {
 				a = 0;
 			}
-			if (a > 0xFFFF) {
+			else if (a > 0xFFFF) {
 				a = 0xFFFF;
 			}
 
 			img[y * WIDTH + x] = (uint16_t)a;
 		}
 	}
+	/* Uses the same array for the data */
 	Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
 	filterBP(frame);
+	
+	/* Now the data is copied to new memory so it's its own img */
+	Mat out;
+	frame.copyTo(out);
 
-	return frame;
+	return out;
 }
 
 cv::Mat seekCam::frame_acquire()
@@ -502,18 +509,19 @@ cv::Mat seekCam::frame_acquire()
 					uint16_t v = reinterpret_cast<uint16_t*>(data)[y*WIDTH+x];
 					v = le16toh(v);
 
-					a = int(v) - int(cal->at<uint16_t>(y, x));
-					
-					// level shift
-					a += level_shift;
+					if(v > 0x800){
+						a = int(v) - int(cal->at<uint16_t>(y, x)) + level_shift;
 
-					if (a < 0) {
+						if (a < 0) {
+							a = 0;
+						}
+						if (a > 0xFFFF) {
+							a = 0xFFFF;
+						}
+					}
+					else {
 						a = 0;
 					}
-					if (a > 0xFFFF) {
-						a = 0xFFFF;
-					}
-
 					img[y * WIDTH + x] = (uint16_t)a;
 				}
 			}
@@ -538,7 +546,7 @@ void seekCam::buildBPList()
 {
 	for(int y=0; y<calib.rows; y++){
 		for(int x=0; x<calib.cols; x++){
-			if(calib.at<uint16_t>(y, x) == 0){
+			if(calib.at<uint16_t>(y, x) <= 0x10){	/* Status bit is not 0 */
 				bp_list.push_back(Point(x, y));
 			}
 		}
@@ -551,15 +559,76 @@ void seekCam::filterBP(Mat frame)
 		float val;
 		Point px = bp_list[i];
 		
-		// load the four neighboring pixels
-		const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
-		const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
-		const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
-		const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
-		
-		
-		val = p1 * 0.25 + p2 * 0.25 + p3 * 0.25 + p4 * 0.25;
-		
+		if(px.x>0 && px.x<WIDTH-1 && px.y>0 && px.y<HEIGHT-1){
+			// load the four neighboring pixels
+			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
+			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
+			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
+			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			
+			val = p1 * 0.25 + p2 * 0.25 + p3 * 0.25 + p4 * 0.25;
+		}
+		else if(px.x==WIDTH-1 && px.y==0){
+			//upper right corner
+			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
+			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
+			
+			val = p1 * 0.5 + p3 * 0.5;
+		}
+		else if(px.x==WIDTH-1 && px.y==HEIGHT-1){
+			//lower right corner
+			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
+			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			
+			val = p1 * 0.5 + p4 * 0.5;
+		}
+		else if(px.x==WIDTH-1){
+			//right side
+			//This side is a full line of pixels
+			//Take corners instead of sides
+			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
+			const uint16_t p3 = frame.at<uint16_t>(Point(px.x-1, px.y+1));
+			const uint16_t p4 = frame.at<uint16_t>(Point(px.x-1, px.y-1));
+			
+			val = p1 * 0.5 + p3 * 0.25 + p4 * 0.25;
+		}
+		else if(px.x==0 && px.y==HEIGHT-1){
+			//lower left corner
+			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
+			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			
+			val = p2 * 0.5 + p4 * 0.5;
+		}
+		else if(px.y==HEIGHT-1){
+			//bottom side
+			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
+			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
+			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			
+			val = p1 * 0.25 + p2 * 0.25 + p4 * 0.5;
+		}
+		else if(px.x==0 && px.y==0){
+			//Upper left corner
+			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
+			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
+			val = p2 * 0.5 + p3 * 0.5;
+		}
+		else if(px.x==0){
+			//left side
+			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
+			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
+			const uint16_t p4 = frame.at<uint16_t>(Point(px.x, px.y-1));
+			
+			val = p2 * 0.5 + p3 * 0.25 + p4 * 0.25;
+		}
+		else if(px.y==0){
+			//top side
+			const uint16_t p1 = frame.at<uint16_t>(Point(px.x-1, px.y));
+			const uint16_t p2 = frame.at<uint16_t>(Point(px.x+1, px.y));
+			const uint16_t p3 = frame.at<uint16_t>(Point(px.x, px.y+1));
+			
+			val = p1 * 0.25 + p2 * 0.25 + p3 * 0.5;
+		}
 		
 		frame.at<uint16_t>(px) = uint16_t(val) ;
 		

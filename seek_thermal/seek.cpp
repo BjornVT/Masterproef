@@ -439,32 +439,17 @@ bool seekCam::grab()
 
 cv::Mat seekCam::retrieve()
 {
-	uint16_t img[HEIGHT * WIDTH];
 	Mat *cal = getCalib();
+	Mat frame(HEIGHT, WIDTH, CV_16UC1, data, Mat::AUTO_STEP);
 	
 	for (int y = 0; y < HEIGHT; y++) {
 		for (int x = 0; x < WIDTH; x++) {
 			int a;
 
-			uint16_t v = reinterpret_cast<uint16_t*>(data)[y * WIDTH + x];
-			v = le16toh(v);
-			a = int(v) - int(cal->at<uint16_t>(y, x));
-					
-			// level shift
-			a += level_shift;
-
-			if (a < 0) {
-				a = 0;
-			}
-			else if (a > 0xFFFF) {
-				a = 0xFFFF;
-			}
-
-			img[y * WIDTH + x] = (uint16_t)a;
+			a = int(frame.at<uint16_t>(Point(x, y))) - int(cal->at<uint16_t>(Point(x,y))) + level_shift;
+			frame.at<uint16_t>(Point(x, y)) = (uint16_t)a;
 		}
 	}
-	/* Uses the same array for the data */
-	Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
 	filterBP(frame);
 	
 	/* Now the data is copied to new memory so it's its own img */

@@ -50,7 +50,6 @@ int main(int argc, char** argv) {
 	
 	namedWindow( "LWIR",  WINDOW_NORMAL);
 	namedWindow( "RGB",  WINDOW_NORMAL);
-	//namedWindow( "Cal",  WINDOW_NORMAL);
 	cout << endl;
 
 	while(running) {
@@ -76,9 +75,9 @@ int main(int argc, char** argv) {
 		frame.copyTo(right);
 		*/
 
-		imshow( "RGB", frame2 );
+		imshow("RGB", frame2);
 		//imwrite( "res2.png", tot );
-		imshow( "LWIR", frame );
+		imshow("LWIR", frame);
 		
 		frame.release();
 		frame2.release();

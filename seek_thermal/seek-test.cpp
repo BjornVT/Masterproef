@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
 #include <string.h>
 #include <cstdint>
 #include <chrono>
@@ -63,32 +66,22 @@ int main(int argc, char** argv) {
 		frame.convertTo(frame, CV_8UC1, 1.0/32.0);
 		//frame.convertTo(frame, CV_8UC1, 1.0/256.0);
 		equalizeHist(frame, frame); 
-		
-		/*
-		Mat tot(frame2.rows, frame.cols+frame2.cols, CV_8UC3, 0.0);
-		
-		Mat left(tot, Rect(0, 0, frame2.cols, frame2.rows)); // Copy constructor
-		frame2.copyTo(left);
-		
-		cv::cvtColor(frame, frame, cv::COLOR_GRAY2BGR);
-		Mat right(tot, Rect(frame2.cols, 0, frame.cols, frame.rows)); // Copy constructor
-		frame.copyTo(right);
-		*/
 
-		imshow("RGB", frame2);
+		
 		//imwrite( "res2.png", tot );
 		imshow("LWIR", frame);
+		imshow("RGB", frame2);
 		
 		frame.release();
 		frame2.release();
 		//tot.release();
 		
-		//Trying to get sort of a steady framerate
-		//end = chrono::high_resolution_clock::now();
-		//chrono::milliseconds toWait = chrono::duration_cast<chrono::milliseconds>(frameFreq - (end - start));
-		//cout << toWait.count() << endl;
-		waitKey(frameFreq.count());
-		//waitKey(0);
+		/*end = chrono::high_resolution_clock::now();
+		chrono::milliseconds toWait = chrono::duration_cast<chrono::milliseconds>(frameFreq - (end - start));
+		cout << toWait.count() << endl;
+		* */
+		//waitKey(frameFreq.count());
+		waitKey(1);
 	}
 }
 

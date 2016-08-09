@@ -366,20 +366,14 @@ seekCam::seekCam()
 
 		if (status == 1) {
 			bugprintf("Calib\n");
-			for (int y = 0; y < HEIGHT; y++) {
-				for (int x = 0; x < WIDTH; x++) {
-					uint16_t v = reinterpret_cast<uint16_t*>(data)[y*WIDTH+x];
-					v = le16toh(v);
-					
-					img[y * WIDTH + x] = v;
-				}
-			}	
-			Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
-			frame.copyTo(*getCalib());
+			Mat *cal = getCalib();		
+			Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
+			frame.convertTo(*cal, CV_32SC1);
+			frame.release();
 			
 			/* Calculating level shift */
 			bugprintf("Get mean of calib frame\n");
-			cv::Scalar mean = cv::mean(frame);
+			cv::Scalar mean = cv::mean(*cal);
 			level_shift = int(mean[0]);
 			//level_shift = 8000;
 			
@@ -414,18 +408,12 @@ bool seekCam::grab()
 		
 		if (status == 1) {
 			bugprintf("Calib\n");
-			
-			uint16_t img[HEIGHT*WIDTH];
-			for (int y = 0; y < HEIGHT; y++) {
-				for (int x = 0; x < WIDTH; x++) {
-					uint16_t v = reinterpret_cast<uint16_t*>(data)[y*WIDTH+x];
-					v = le16toh(v);
-					
-					img[y * WIDTH + x] = v;
-				}
-			}	
-			Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
-			frame.copyTo(*getCalib());
+			Mat *cal = getCalib();
+			cal->release();			
+			Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
+			frame.convertTo(*cal, CV_32SC1);
+			frame.release();
+
 			continue;
 		}
 
@@ -439,87 +427,23 @@ bool seekCam::grab()
 
 cv::Mat seekCam::retrieve()
 {
-	Mat *cal = getCalib();
-	Mat frame(HEIGHT, WIDTH, CV_16UC1, data, Mat::AUTO_STEP);
-	
-	for (int y = 0; y < HEIGHT; y++) {
-		for (int x = 0; x < WIDTH; x++) {
-			int a;
-
-			a = int(frame.at<uint16_t>(Point(x, y))) - int(cal->at<uint16_t>(Point(x,y))) + level_shift;
-			frame.at<uint16_t>(Point(x, y)) = (uint16_t)a;
-		}
-	}
-	filterBP(frame);
-	
-	/* Now the data is copied to new memory so it's its own img */
 	Mat out;
-	frame.copyTo(out);
+	Mat *cal = getCalib();
+	Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
+	frame.convertTo(frame, CV_32SC1);
 
+	frame += level_shift - *cal;
+	
+	frame.convertTo(out, CV_16UC1);
+	frame.release();
+	filterBP(out);
 	return out;
 }
 
-cv::Mat seekCam::frame_acquire()
+cv::Mat seekCam::read()
 {
-	while (true) {
-		_cam.frame_get_one(data);
-
-		uint8_t status = data[20];
-		bugprintf("Status: %d\n", status);
-		
-		uint16_t img[HEIGHT*WIDTH];
-
-		if (status == 1) {
-			bugprintf("Calib\n");
-			for (int y = 0; y < HEIGHT; y++) {
-				for (int x = 0; x < WIDTH; x++) {
-					uint16_t v = reinterpret_cast<uint16_t*>(data)[y*WIDTH+x];
-					v = le16toh(v);
-					
-					img[y * WIDTH + x] = v;
-				}
-			}	
-			Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
-			frame.copyTo(*getCalib());
-			continue;
-		}
-
-		if(status == 3){
-			//real frame
-			Mat *cal = getCalib();
-			for (int y = 0; y < HEIGHT; y++) {
-				for (int x = 0; x < WIDTH; x++) {
-					int a;
-
-					uint16_t v = reinterpret_cast<uint16_t*>(data)[y*WIDTH+x];
-					v = le16toh(v);
-
-					if(v > 0x800){
-						a = int(v) - int(cal->at<uint16_t>(y, x)) + level_shift;
-
-						if (a < 0) {
-							a = 0;
-						}
-						if (a > 0xFFFF) {
-							a = 0xFFFF;
-						}
-					}
-					else {
-						a = 0;
-					}
-					img[y * WIDTH + x] = (uint16_t)a;
-				}
-			}
-			
-			Mat frame(HEIGHT, WIDTH, CV_16UC1, (void *)img, Mat::AUTO_STEP);
-			
-			filterBP(frame);
-
-			return frame;
-		}
-		
-		bugprintf("Bad status: %d\n", status);
-	}
+	grab();
+	return retrieve();
 }
 
 Mat *seekCam::getCalib()
@@ -531,7 +455,7 @@ void seekCam::buildBPList()
 {
 	for(int y=0; y<calib.rows; y++){
 		for(int x=0; x<calib.cols; x++){
-			if(calib.at<uint16_t>(y, x) <= 0x10){	/* Status bit is not 0 */
+			if(calib.at<int32_t>(y, x) <= 0x10){	/* Status bit is not 0 */
 				bp_list.push_back(Point(x, y));
 			}
 		}

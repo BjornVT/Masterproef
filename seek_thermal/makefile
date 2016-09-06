@@ -81,10 +81,9 @@ startCalib: $(EXECUTABLE_CALIB)
 	
 	
 startRecord: $(EXECUTABLE_RECORD)	
-	startCalib: $(EXECUTABLE_RECORD)
 	@echo starting $(EXECUTABLE_RECORD)
 	@echo ------------------------------------
-	-@sudo ./$(EXECUTABLE_RECORD)
+	-@sudo ./$(EXECUTABLE_RECORD) 10
 	@echo ------------------------------------
 	@echo Stopping program
 	

@@ -11,7 +11,7 @@
 #include "seek.hpp"
 #include "debug.h"
 
-#define FPS 		10
+#define FPS 		8
 #define NAMELWIR 	"outlwir.avi"
 #define NAMERGB		"outrgb.avi"
 
@@ -19,7 +19,6 @@ using namespace std;
 using namespace cv;
 
 bool running = true;
-const chrono::milliseconds frameFreq(999/FPS);
 
 void quitProgram(int sig);
 static void help(char* name);
@@ -84,8 +83,6 @@ int main(int argc, char** argv) {
 		
 		frameLWIR.convertTo(frameLWIR, CV_8UC1, 1.0/32.0);
 		equalizeHist(frameLWIR, frameLWIR); 
-
-		//cout << frameLWIR.rows << " " << frameLWIR.cols << endl;
 
 		outRGB << frameRGB;
 		outLWIR << frameLWIR;

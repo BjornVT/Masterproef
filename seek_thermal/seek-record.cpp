@@ -61,14 +61,14 @@ int main(int argc, char** argv) {
 	Size SLWIR = Size((int)208, (int)156);
 	
 	//Opening video writers
-	outLWIR.open(NAMELWIR, CV_FOURCC('M','J','P','G'), FPS, SLWIR, false);
+	outLWIR.open(NAMELWIR, CV_FOURCC('X','2','6','4'), FPS, SLWIR, false);
 	if (!outLWIR.isOpened())
     {
         throw runtime_error("Could not open the output video for write: LWIR");
         exit(1);
     }
 
-	outRGB.open(NAMERGB, CV_FOURCC('M','J','P','G'), FPS, SRGB, true);
+	outRGB.open(NAMERGB, CV_FOURCC('X','2','6','4'), FPS, SRGB, true);
 	if (!outRGB.isOpened())
     {
         throw runtime_error("Could not open the output video for write: RGB");
@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
 		cap.retrieve(frameRGB);
 		frameLWIR = seek.retrieve();	
 		
-		frameLWIR.convertTo(frameLWIR, CV_8UC1, 1.0/256.0);
+		frameLWIR.convertTo(frameLWIR, CV_8UC1, 1.0/32.0);
 		equalizeHist(frameLWIR, frameLWIR); 
 
 		//cout << frameLWIR.rows << " " << frameLWIR.cols << endl;

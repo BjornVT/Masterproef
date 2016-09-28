@@ -60,9 +60,14 @@ $(OBJECTS): $(BUILDDIR)/%.o : $(SOURCEDIR)/%.cpp
 	$(CC) $(CFLAGS) -c $< -o $@ $(INCLUDE_DIRS) $(LIBS)
 
 
-$(LIB): $(OBJECTS)
+$(LIB): $(LIB_OBJECTS)
+	@echo making lib
 	$(AR) $(ARFLAGS) $@ $(LIB_OBJECTS)
 
+$(LIB_OBJECTS): $(LIB_SOURCES)
+	@echo building $@
+	$(CC) $(CFLAGS) -c $< -o $@ $(INCLUDE_DIRS) $(LIBS)
+	
 
 startTest: $(EXECUTABLE_TEST)
 	@echo starting $(EXECUTABLE_TEST)

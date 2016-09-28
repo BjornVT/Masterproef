@@ -460,8 +460,11 @@ void seekCam::buildBPList()
 
 void seekCam::filterBP(Mat frame)
 {
-	for(unsigned int i=0; i<bp_list.size(); i++){
-		float val;
+	int size = bp_list.size();
+	float val;
+	int val2;
+	
+	for(int i=0; i<size; i++){
 		Point px = bp_list[i];
 		
 		if(px.x>0 && px.x<WIDTH-1 && px.y>0 && px.y<HEIGHT-1){
@@ -472,6 +475,9 @@ void seekCam::filterBP(Mat frame)
 			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p1 * 0.25 + p2 * 0.25 + p3 * 0.25 + p4 * 0.25;
+			//val2 = p1 + p2 + p3 + p4;
+			//val2 = val2 >>12;
+			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.x==WIDTH-1 && px.y==0){
 			//upper right corner
@@ -479,6 +485,9 @@ void seekCam::filterBP(Mat frame)
 			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
 			
 			val = p1 * 0.5 + p3 * 0.5;
+			//val2 = p1 + p3;
+			//val2 = val2 >> 2;
+			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.x==WIDTH-1 && px.y==HEIGHT-1){
 			//lower right corner
@@ -486,6 +495,7 @@ void seekCam::filterBP(Mat frame)
 			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p1 * 0.5 + p4 * 0.5;
+			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.x==WIDTH-1){
 			//right side
@@ -496,6 +506,7 @@ void seekCam::filterBP(Mat frame)
 			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x-1);
 			
 			val = p1 * 0.5 + p3 * 0.25 + p4 * 0.25;
+			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.x==0 && px.y==HEIGHT-1){
 			//lower left corner
@@ -503,6 +514,7 @@ void seekCam::filterBP(Mat frame)
 			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p2 * 0.5 + p4 * 0.5;
+			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.y==HEIGHT-1){
 			//bottom side
@@ -511,12 +523,14 @@ void seekCam::filterBP(Mat frame)
 			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p1 * 0.25 + p2 * 0.25 + p4 * 0.5;
+			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.x==0 && px.y==0){
 			//Upper left corner
 			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
 			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
 			val = p2 * 0.5 + p3 * 0.5;
+			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.x==0){
 			//left side
@@ -525,6 +539,7 @@ void seekCam::filterBP(Mat frame)
 			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
 			
 			val = p2 * 0.5 + p3 * 0.25 + p4 * 0.25;
+			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.y==0){
 			//top side
@@ -533,9 +548,10 @@ void seekCam::filterBP(Mat frame)
 			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
 			
 			val = p1 * 0.25 + p2 * 0.25 + p3 * 0.5;
+			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		
-		frame.at<uint16_t>(px) = uint16_t(val) ;
 		
+	
 	}
 }

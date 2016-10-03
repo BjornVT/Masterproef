@@ -59,14 +59,6 @@ void caminterface::init()
 			throw runtime_error("Failed to get device descriptor");
 		}
 
-
-		res = libusb_open(dev, &handle);
-		if (res < 0) {
-			libusb_free_device_list(devs, 1);
-			throw runtime_error("Failed to open device");
-			continue;
-		}
-
 		if (desc.idVendor == 0x289d && desc.idProduct == 0x0010) {
 			found = true;
 			break;
@@ -76,6 +68,12 @@ void caminterface::init()
 	if (!found) {
 		libusb_free_device_list(devs, 1);
 		throw runtime_error("Seek not found");
+	}
+	
+	res = libusb_open(dev, &handle);
+	if (res < 0) {
+		libusb_free_device_list(devs, 1);
+		throw runtime_error("Failed to open device");
 	}
 
 	bugprintf("Device found\n");

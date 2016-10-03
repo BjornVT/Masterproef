@@ -25,7 +25,7 @@ LIBS = -lusb-1.0 -lseek $(shell pkg-config --libs opencv)
 INCLUDE_DIRS = -I/usr/include/libusb-1.0 -I/usr/include/opencv
 
 CFLAGS = -Wall
-LDFLAGS =
+LDFLAGS = 
 ARFLAGS = ru
 AR = ar
 CC = g++
@@ -72,7 +72,7 @@ $(LIB_OBJECTS): $(LIB_SOURCES)
 startTest: $(EXECUTABLE_TEST)
 	@echo starting $(EXECUTABLE_TEST)
 	@echo ------------------------------------
-	-@sudo ./$(EXECUTABLE_TEST)
+	-@./$(EXECUTABLE_TEST)
 	@echo ------------------------------------
 	@echo Stopping program
 
@@ -80,7 +80,7 @@ startTest: $(EXECUTABLE_TEST)
 startCalib: $(EXECUTABLE_CALIB)
 	@echo starting $(EXECUTABLE_CALIB)
 	@echo ------------------------------------
-	-@sudo ./$(EXECUTABLE_CALIB)
+	-@./$(EXECUTABLE_CALIB)
 	@echo ------------------------------------
 	@echo Stopping program
 	
@@ -88,7 +88,7 @@ startCalib: $(EXECUTABLE_CALIB)
 startRecord: $(EXECUTABLE_RECORD)	
 	@echo starting $(EXECUTABLE_RECORD)
 	@echo ------------------------------------
-	-@sudo ./$(EXECUTABLE_RECORD) 10
+	-@./$(EXECUTABLE_RECORD) 10
 	@echo ------------------------------------
 	@echo Stopping program
 	
@@ -103,5 +103,5 @@ clean:
 
 help:
 	@echo Targets are: all $(EXECUTABLE_TEST) $(EXECUTABLE_CALIB) $(EXECUTABLE_RECORD) $(OBJECTS) startCalib startTest startRecord clean help
-	
+	@echo To be able to open the usb device, you need to add a udev file. See readme
 	

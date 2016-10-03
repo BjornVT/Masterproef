@@ -49,14 +49,12 @@ class seekCam {
 	public:
 		seekCam();
 		~seekCam();
-		void exit();
+		void release();
 		bool grab();
-		cv::Mat retrieve();
-		cv::Mat read();
+		void retrieve(cv::OutputArray _dst);
+		void read(cv::OutputArray _dst);
 		cv::Mat * getCalib();
-		void filterBP(cv::Mat frame);
-		
-		
+		void filterBP(cv::Mat frame);		
 		
 };
 

@@ -388,7 +388,7 @@ seekCam::~seekCam()
 	_cam.exit();
 }
 
-void seekCam::exit()
+void seekCam::release()
 {
 	_cam.exit();
 }
@@ -419,10 +419,12 @@ bool seekCam::grab()
 	}
 }
 
-cv::Mat seekCam::retrieve()
+void seekCam::retrieve(OutputArray _dst)
 {
-	Mat out;
+	_dst.create( HEIGHT, WIDTH, CV_16SC1);
+    Mat out = _dst.getMat();
 	Mat *cal = getCalib();
+	
 	Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
 	frame.convertTo(frame, CV_32SC1);
 
@@ -431,13 +433,13 @@ cv::Mat seekCam::retrieve()
 	frame.convertTo(out, CV_16UC1);
 	frame.release();
 	filterBP(out);
-	return out;
+	out.copyTo(_dst);
 }
 
-cv::Mat seekCam::read()
+void seekCam::read(OutputArray _dst)
 {
 	grab();
-	return retrieve();
+	retrieve(_dst);
 }
 
 Mat *seekCam::getCalib()
@@ -460,7 +462,7 @@ void seekCam::filterBP(Mat frame)
 {
 	int size = bp_list.size();
 	float val;
-	int val2;
+	//int val2;
 	
 	for(int i=0; i<size; i++){
 		Point px = bp_list[i];
@@ -548,8 +550,7 @@ void seekCam::filterBP(Mat frame)
 			val = p1 * 0.25 + p2 * 0.25 + p3 * 0.5;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
-		
-		
-	
 	}
 }
+
+

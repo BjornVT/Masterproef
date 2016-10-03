@@ -30,6 +30,7 @@ int main(int argc, char** argv) {
 	VideoCapture cap;
 	VideoWriter outLWIR;
 	VideoWriter outRGB;
+	int nimg = 0;
 	
 	signal(SIGTERM, &quitProgram);
 	signal(SIGINT, &quitProgram);
@@ -73,6 +74,9 @@ int main(int argc, char** argv) {
         throw runtime_error("Could not open the output video for write: RGB");
         exit(1);
     }
+    
+    namedWindow("LWIR",  WINDOW_NORMAL);
+	namedWindow("RGB",  WINDOW_NORMAL);
 
 	cout << "Start recording" << endl;
 	while(running) {
@@ -83,14 +87,20 @@ int main(int argc, char** argv) {
 		
 		frameLWIR.convertTo(frameLWIR, CV_8UC1, 1.0/32.0);
 		equalizeHist(frameLWIR, frameLWIR); 
+		
+		cout << nimg++ << endl;
 
 		outRGB << frameRGB;
 		outLWIR << frameLWIR;
 		
+		imshow("LWIR", frameLWIR);
+		imshow("RGB", frameRGB);
+		
 		frameLWIR.release();
 		frameRGB.release();
 		
-		waitKey(1);
+		//waitKey(124);
+		waitKey(1000);//1sec wait => recording calib videos => good frames not bunched together
 	}
 	cout << "Finished recording" << endl;
 }

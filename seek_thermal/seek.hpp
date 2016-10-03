@@ -38,7 +38,7 @@ class seekCam {
 	private:
 		class caminterface _cam;
 		cv::Mat calib;
-		int level_shift = 0;
+		int level_shift = 7550; 
 		uint8_t data[WIDTH*HEIGHT*2] = {0};
 		vector<cv::Point> bp_list;
 		

@@ -367,10 +367,10 @@ seekCam::seekCam()
 			frame.release();
 			
 			/* Calculating level shift */
-			bugprintf("Get mean of calib frame\n");
-			cv::Scalar mean = cv::mean(*cal);
-			level_shift = int(mean[0]);
-			//level_shift = 8000;
+			//bugprintf("Get mean of calib frame\n");
+			//cv::Scalar mean = cv::mean(*cal);
+			//level_shift = int(mean[0]);
+			//cout << level_shift << endl;
 			
 			/* Builing Black spot list */
 			bugprintf("Building BP List\n");

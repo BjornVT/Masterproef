@@ -73,7 +73,7 @@ void caminterface::init()
 		libusb_free_device_list(devs, 1);
 		throw runtime_error("Seek not found");
 	}
-	
+
 	res = libusb_open(dev, &handle);
 	if (res < 0) {
 		libusb_free_device_list(devs, 1);
@@ -295,14 +295,14 @@ void caminterface::vendor_transfer(bool direction,
 		// to device
 		bugprintf("ctrl_transfer to dev(0x%x, 0x%x, 0x%x, 0x%x, %d)",
 			 bmRequestType, bRequest, wValue, wIndex, wLength);
-		
+
 		res = libusb_control_transfer(handle, bmRequestType, bRequest,
 			wValue, wIndex, aData, wLength, timeout);
 
 		if (res != wLength) {
 			fprintf(stderr, "\x1B[31;1mBad returned length: %d\x1B[0m\n", res);
 		}
-		
+
 		//printData(data);
 	}
 	else {
@@ -311,11 +311,11 @@ void caminterface::vendor_transfer(bool direction,
 			bmRequestType, bRequest, wValue, wIndex, wLength);
 		res = libusb_control_transfer(handle, bmRequestType, bRequest,
 			wValue, wIndex, aData, wLength, timeout);
-		
+
 		if (res != wLength) {
 			fprintf(stderr, "\x1B[31;1mBad returned length: %d\x1B[0m\n", res);
 		}
-		
+
 		//printData(data);
 	}
 }
@@ -369,30 +369,37 @@ bool seekCam::open()
 	/* This function is going to take frame in util he gets a calib frame.
 	 * On this frame it is going to search for blank pixels to build a list for the interpolation
 	 */
-	 
-	while (true) {
+
+	_cam.init();
+
+	bool frame1 = false;
+	bool frame4 = false;
+	while (!(frame1 && frame4)) {
 		_cam.frame_get_one(data);
 
 		bugprintf("Status: %d\n", data[20]);
 
 		if (data[20] == 1) {
 			bugprintf("Calib\n");
-			Mat *cal = getCalib();		
+			Mat *cal = getCalib();
 			Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
 			frame.convertTo(*cal, CV_32SC1);
 			frame.release();
-			
-			/* Calculating level shift */
-			//bugprintf("Get mean of calib frame\n");
-			//cv::Scalar mean = cv::mean(*cal);
-			//level_shift = int(mean[0]);
-			//cout << level_shift << endl;
-			
+
 			/* Builing Black spot list */
 			bugprintf("Building BP List\n");
+
+
+			frame1 = true;
+		}
+		else if(data[20] == 4){
+			Mat *cal = getCalib4();
+			Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
+			frame.convertTo(*cal, CV_32SC1);
+			frame.release();
 			buildBPList();
-			
-			break;
+
+			frame4 = true;
 		}
 	}
 	frameCounter = 0;
@@ -411,6 +418,7 @@ void seekCam::release()
 	bugprintf("\n");
 	isOpen = false;
 	_cam.exit();
+
 }
 
 bool seekCam::grab()
@@ -429,9 +437,28 @@ bool seekCam::grab()
 			Mat *cal = getCalib();
 			cal->release();
 			Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
-			frame.convertTo(*cal, CV_32SC1);
-			frame.release();
+			frame.convertTo(frame, CV_32SC1);
 
+			/*
+			Scalar tempVal = mean(frame.col(206));
+			double scl =  0.002 * tempVal[0];
+			for(int i=0; i<HEIGHT; i++){
+				for(int j=0; j<206; j++){
+					frame.at<int32_t>(i, j) = frame.at<int32_t>(i, j) - (0.05 * frame.at<int32_t>(i, j)/scl - frame.at<int32_t>(i, 206)/scl);
+				}
+			}*/
+			frame.copyTo(*cal);
+			frame.release();
+			continue;
+		}
+
+		if(data[20] == 4){
+			Mat *cal = getCalib4();
+			cal->release();
+			Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
+			frame.convertTo(frame, CV_32SC1);
+			frame.copyTo(*cal);
+			frame.release();
 			continue;
 
 		}
@@ -450,12 +477,20 @@ bool seekCam::retrieve(cv::OutputArray _dst)
 	_dst.create( HEIGHT, WIDTH, CV_16SC1);
     Mat out = _dst.getMat();
 	Mat *cal = getCalib();
-	
-	Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
-	frame.convertTo(frame, CV_32SC1);
+	Mat *cal4 = getCalib4();
+	Mat frame(HEIGHT, WIDTH, CV_16UC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
 
+	Mat div(HEIGHT, WIDTH, CV_32SC1);
+	Mat r;
+
+	div.setTo(2048);
+	divide(frame, div, div, 1, CV_32SC1);
+	div += 8;
+	divide(*cal4, div, r, 1, CV_32SC1);
+
+	frame.convertTo(frame, CV_32SC1);
 	frame += level_shift - *cal;
-	
+	frame += r;
 	frame.convertTo(out, CV_16UC1);
 
 	frame.release();
@@ -463,6 +498,9 @@ bool seekCam::retrieve(cv::OutputArray _dst)
 
 	out = out(Rect(0, 0, 206, 156)).clone();
 	out.copyTo(_dst);
+	out.copyTo(latestframe);
+
+	return true;
 }
 
 bool seekCam::retrieveRaw(cv::OutputArray _dst)
@@ -497,9 +535,61 @@ seekCam& seekCam::operator >> (UMat& image)
     return *this;
 }
 
+seekCam& seekCam::operator >> (Mat& image)
+{
+    read(image);
+    return *this;
+}
+
+double seekCam::get(int propId)
+{
+	switch(propId){
+		case CV_CAP_PROP_POS_FRAMES:
+			return frameCounter;
+		case CV_CAP_PROP_POS_AVI_RATIO:
+			return 0;
+		case CV_CAP_PROP_FRAME_WIDTH:
+			return 206;
+		case CV_CAP_PROP_FRAME_HEIGHT:
+			return 156;
+		case CV_CAP_PROP_FORMAT:
+			return CV_16UC1;
+
+		default:
+			return 0;
+	}
+}
+
+bool seekCam::set(int propId, double value)
+{
+	return false;
+}
+
+double seekCam::getTemp(Point pt)
+{
+	/*
+	 * Function to get the temperature of a specific point
+	 * Warning: this only works if you have used retrieve or read() functions.
+	 * Does not work when using retrieveRaw()
+	 */
+	double temp=0;
+
+	temp = latestframe.at<int16_t>(pt) - 15000;
+	temp /= 50.338;
+	return temp;
+}
+
+
+
+/* Private */
 Mat *seekCam::getCalib()
 {
 	return &calib;
+}
+
+Mat *seekCam::getCalib4()
+{
+	return &calib4;
 }
 
 void seekCam::buildBPList()

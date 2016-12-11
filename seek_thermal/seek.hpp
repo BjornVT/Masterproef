@@ -44,11 +44,15 @@ class seekCam
 		int level_shift = 0x4000;
 		vector<cv::Point> bp_list;
 		cv::Mat calib;
-		int level_shift = 7550; 
+		cv::Mat calib4;
+		cv::Mat latestframe;
 		uint8_t data[WIDTH*HEIGHT*2] = {0};
 		
 		
 		void buildBPList();
+		cv::Mat * getCalib();
+		cv::Mat * getCalib4();
+		void filterBP(cv::Mat frame);
 		
 		
 		

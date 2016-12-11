@@ -353,6 +353,8 @@ void caminterface::frame_get_one(uint8_t * frame)
 
 }
 
+
+
 seekCam::seekCam()
 {
 	bugprintf("\n");

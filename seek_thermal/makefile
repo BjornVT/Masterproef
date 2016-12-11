@@ -101,7 +101,7 @@ startCalib: $(EXECUTABLE_CALIB)
 startRecord: $(EXECUTABLE_RECORD)	
 	@echo starting $(EXECUTABLE_RECORD)
 	@echo ------------------------------------
-	-@./$(EXECUTABLE_RECORD)
+	-@./$(EXECUTABLE_RECORD) 1 gradient.png
 	@echo ------------------------------------
 	@echo Stopping program
 	

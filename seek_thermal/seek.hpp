@@ -13,6 +13,9 @@
 #define WIDTH	208
 #define HEIGHT	156
 
+#define THRESNOTINFRAME		275
+#define THRESFIXEDGRAD		50
+
 using namespace std;
 namespace LibSeek {
 	
@@ -41,18 +44,22 @@ class seekCam
 		
 		bool isOpen = false;
 		int frameCounter;
-		int level_shift = 0x4000;
+		int level_shift = 0x4000;  //2MSB not used => shift up so we don't go negative
+		bool calGradient = true;
 		vector<cv::Point> bp_list;
 		cv::Mat calib;
 		cv::Mat calib4;
 		cv::Mat latestframe;
+		cv::Mat grad = cv::Mat::zeros(HEIGHT, WIDTH, CV_16UC1);
 		uint8_t data[WIDTH*HEIGHT*2] = {0};
 		
 		
 		void buildBPList();
 		cv::Mat * getCalib();
 		cv::Mat * getCalib4();
-		void filterBP(cv::Mat frame);
+		void filterBP(cv::InputOutputArray frame);
+		void degradient(cv::InputOutputArray img);
+		void meanBlock(cv::InputArray img, cv::OutputArray means, const cv::Size s);
 		
 		
 		
@@ -60,6 +67,7 @@ class seekCam
 		seekCam();
 		~seekCam();
 		bool open();
+		bool open(const char fileName[]);
 		bool isOpened();
 		void release();
 		bool grab();
@@ -71,6 +79,9 @@ class seekCam
 		double getTemp(cv::Point pt);
 		seekCam& operator >> (cv::UMat& image);
 		seekCam& operator >> (cv::Mat& image);
+		void saveGradient(const char fileName[]);
+		
+		
 		
 		
 };

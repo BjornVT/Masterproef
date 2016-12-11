@@ -408,6 +408,20 @@ bool seekCam::open()
 	return true;
 }
 
+bool seekCam::open(const char fileName[])
+{
+	bugprintf("\n");
+	
+	double minVal;
+	Mat in;
+	
+	in = imread(fileName, CV_LOAD_IMAGE_ANYDEPTH );
+	
+	in.convertTo(grad, CV_16UC1);
+	calGradient = false;
+	return open();
+}
+
 bool seekCam::isOpened()
 {
 	return isOpen;
@@ -495,6 +509,7 @@ bool seekCam::retrieve(cv::OutputArray _dst)
 
 	frame.release();
 	filterBP(out);
+	degradient(out);
 
 	out = out(Rect(0, 0, 206, 156)).clone();
 	out.copyTo(_dst);
@@ -579,7 +594,10 @@ double seekCam::getTemp(Point pt)
 	return temp;
 }
 
-
+void seekCam::saveGradient(const char fileName[])
+{
+	imwrite(fileName, grad);
+}
 
 /* Private */
 Mat *seekCam::getCalib()
@@ -612,8 +630,9 @@ void seekCam::buildBPList()
 
 }
 
-void seekCam::filterBP(Mat frame)
+void seekCam::filterBP(InputOutputArray _frame)
 {
+	Mat frame = _frame.getMat();
 	int size = bp_list.size();
 	float val;
 	//int val2;
@@ -711,4 +730,57 @@ void seekCam::filterBP(Mat frame)
 	}
 }
 
+void seekCam::degradient(InputOutputArray _img)
+{
+	Mat img = _img.getMat();
+	
+	if(calGradient){
+		double minVal, maxVal;
+		
+		/* Anything in frame? */
+		Mat mean(img.rows/4, img.cols/4, CV_32SC1);
+		meanBlock(img, mean, Size(4, 4));
+		minMaxLoc(mean, &minVal, &maxVal, NULL, NULL);
+		if((maxVal-minVal) < THRESNOTINFRAME){
+			/* Nothing in frame
+			 * We can use it for updating gradient :)
+			 */
+			grad = (grad*7 + img)/8;
+			minMaxLoc(grad, &minVal, NULL, NULL, NULL);
+			grad -= minVal; //Remove lowest value => so we only delete the gradient and not the information
+		}
+	
+		img = img - grad;
+	
+		minMaxLoc(img, &minVal, &maxVal, NULL, NULL);
+		if((maxVal-minVal) < THRESFIXEDGRAD){
+			
+			calGradient = false;
+			cout << "Got gradient" << endl;
+			
+		}
+	}
+	else{
+		img = img - grad;
+	}
+}
 
+void seekCam::meanBlock(InputArray _img, OutputArray _means, const Size s)
+{
+	Mat means = _means.getMat();
+	Mat img = _img.getMat();
+	
+	for(int l=0; l<img.rows/s.height; l++){ //l+=s.height){
+		for(int m=0; m<img.cols/s.width; m++){ //m+=s.width){
+			int mean = 0;
+			for(int i=0; i<s.height; i++){
+				for(int j=0; j<s.width; j++){
+					mean = mean + img.at<uint16_t>(l*s.height+i, m*s.width+j);
+				}
+			}
+			
+			mean = mean / (s.height * s.width);
+			means.at<int>(l, m) = (int)(mean);
+		}
+	}
+}

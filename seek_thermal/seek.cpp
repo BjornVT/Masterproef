@@ -1,18 +1,11 @@
 #include "seek.hpp"
 
+#include <iostream>
+#include <fstream>
+
 using namespace std;
 using namespace cv;
 using namespace LibSeek;
-
-caminterface::caminterface()
-{
-	init();
-}
-
-caminterface::~caminterface()
-{
-	exit();
-}
 
 inline void printData(vector<uint8_t> data)
 {
@@ -23,6 +16,17 @@ inline void printData(vector<uint8_t> data)
 		}
 		fprintf(stderr, " ]\n");
 	}
+}
+
+caminterface::caminterface()
+{
+
+}
+
+caminterface::~caminterface()
+{
+	bugprintf("\n");
+	exit();
 }
 
 void caminterface::init()
@@ -244,6 +248,7 @@ void caminterface::init()
 
 void caminterface::exit()
 {
+	bugprintf("\n");
 	if (handle == NULL) {
 		return;
 	}
@@ -266,6 +271,7 @@ void caminterface::exit()
 		libusb_exit(ctx);
 		ctx = NULL;
 	}
+	bugprintf("\n");
 }
 
 void caminterface::vendor_transfer(bool direction,
@@ -349,9 +355,19 @@ void caminterface::frame_get_one(uint8_t * frame)
 
 seekCam::seekCam()
 {
+	bugprintf("\n");
+}
+
+seekCam::~seekCam()
+{
+	bugprintf("\n");
+	release();
+}
+
+bool seekCam::open()
+{
 	/* This function is going to take frame in util he gets a calib frame.
 	 * On this frame it is going to search for blank pixels to build a list for the interpolation
-	 * It's also goning to find the mean value for the level shift
 	 */
 	 
 	while (true) {
@@ -379,47 +395,57 @@ seekCam::seekCam()
 			break;
 		}
 	}
-	
+	frameCounter = 0;
+	isOpen = true;
 	bugprintf("Init seek done\n-------------------------------\n");
+	return true;
 }
 
-seekCam::~seekCam()
+bool seekCam::isOpened()
 {
-	_cam.exit();
+	return isOpen;
 }
 
 void seekCam::release()
 {
+	bugprintf("\n");
+	isOpen = false;
 	_cam.exit();
 }
 
 bool seekCam::grab()
 {
-	while (true) {
+	for(int i=0; i<30; i++) {
 		_cam.frame_get_one(data);
 
 		bugprintf("Status: %d\n", data[20]);
-		
+		frameCounter = reinterpret_cast<uint16_t*>(&data[80])[0];
+
+
+
 		if (data[20] == 1) {
 			bugprintf("Calib\n");
+
 			Mat *cal = getCalib();
-			cal->release();			
+			cal->release();
 			Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
 			frame.convertTo(*cal, CV_32SC1);
 			frame.release();
 
 			continue;
+
 		}
 
 		if(data[20] == 3){
 			return true;
 		}
-		
-		bugprintf("Bad status: %d\n", status);
+
 	}
+
+	return false;
 }
 
-void seekCam::retrieve(OutputArray _dst)
+bool seekCam::retrieve(cv::OutputArray _dst)
 {
 	_dst.create( HEIGHT, WIDTH, CV_16SC1);
     Mat out = _dst.getMat();
@@ -431,15 +457,44 @@ void seekCam::retrieve(OutputArray _dst)
 	frame += level_shift - *cal;
 	
 	frame.convertTo(out, CV_16UC1);
+
 	frame.release();
 	filterBP(out);
+
+	out = out(Rect(0, 0, 206, 156)).clone();
 	out.copyTo(_dst);
 }
 
-void seekCam::read(OutputArray _dst)
+bool seekCam::retrieveRaw(cv::OutputArray _dst)
 {
-	grab();
-	retrieve(_dst);
+	_dst.create( HEIGHT, WIDTH, CV_16SC1);
+    Mat out = _dst.getMat();
+	Mat *cal = getCalib();
+
+	Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
+	/*frame.convertTo(frame, CV_32SC1);
+	frame += level_shift - *cal;
+
+	out = frame(Rect(0, 0, 206, 156)).clone();
+	*/
+	frame.copyTo(_dst);
+	frame.release();
+
+	return true;
+}
+
+bool seekCam::read(OutputArray _dst)
+{
+	bool ret;
+	ret = grab();
+	ret = ret & retrieve(_dst);
+	return ret;
+}
+
+seekCam& seekCam::operator >> (UMat& image)
+{
+    read(image);
+    return *this;
 }
 
 Mat *seekCam::getCalib()
@@ -449,13 +504,22 @@ Mat *seekCam::getCalib()
 
 void seekCam::buildBPList()
 {
-	for(int y=0; y<calib.rows; y++){
-		for(int x=0; x<calib.cols; x++){
-			if(calib.at<int32_t>(y, x) <= 0x10){	/* Status bit is not 0 */
+	ofstream myfile;
+	myfile.open ("bp2.txt");
+
+	bp_list.clear();
+	bp_list.push_back(Point(1, 0)); /* byte with temp vaue ?? */
+	for(int y=0; y<calib4.rows; y++){
+		for(int x=0; x<calib4.cols-2; x++){ /* Last 2 cols are a zero padding and some sort of mean */
+			if(calib4.at<int32_t>(y, x) <= 30){	/* Status bit is not 0 && 1 calib frame as framenr 22*/
 				bp_list.push_back(Point(x, y));
+				myfile << Point(x, y) << endl;
 			}
 		}
 	}
+
+  myfile.close();
+
 }
 
 void seekCam::filterBP(Mat frame)
@@ -463,91 +527,95 @@ void seekCam::filterBP(Mat frame)
 	int size = bp_list.size();
 	float val;
 	//int val2;
-	
+
 	for(int i=0; i<size; i++){
 		Point px = bp_list[i];
-		
-		if(px.x>0 && px.x<WIDTH-1 && px.y>0 && px.y<HEIGHT-1){
+
+		if(px.x>0 && px.x<WIDTH-3 && px.y>0 && px.y<HEIGHT-1){
 			// load the four neighboring pixels
-			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
-			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
-			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
-			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
-			
-			val = p1 * 0.25 + p2 * 0.25 + p3 * 0.25 + p4 * 0.25;
-			//val2 = p1 + p2 + p3 + p4;
-			//val2 = val2 >>12;
+			const float p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const float p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const float p3 = frame.at<uint16_t>(px.y+1, px.x);
+			const float p4 = frame.at<uint16_t>(px.y-1, px.x);
+
+			//val = p1 * 0.25 + p2 * 0.25 + p3 * 0.25 + p4 * 0.25;
+			val = (p1 + p2 + p3 + p4)/4;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
-		else if(px.x==WIDTH-1 && px.y==0){
+		else if(px.x==WIDTH-3 && px.y==0){
 			//upper right corner
-			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
-			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
-			
-			val = p1 * 0.5 + p3 * 0.5;
-			//val2 = p1 + p3;
-			//val2 = val2 >> 2;
+			const float p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const float p3 = frame.at<uint16_t>(px.y+1, px.x);
+
+			//val = p1 * 0.5 + p3 * 0.5;
+			val = (p1 + p3)/2;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
-		else if(px.x==WIDTH-1 && px.y==HEIGHT-1){
+		else if(px.x==WIDTH-3 && px.y==HEIGHT-1){
 			//lower right corner
-			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
-			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
-			
-			val = p1 * 0.5 + p4 * 0.5;
+			const float p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const float p4 = frame.at<uint16_t>(px.y-1, px.x);
+
+			//val = p1 * 0.5 + p4 * 0.5;
+			val = (p1 + p4)/2;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
-		else if(px.x==WIDTH-1){
+		else if(px.x==WIDTH-3){
 			//right side
-			//This side is a full line of pixels
-			//Take corners instead of sides
-			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
-			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x-1);
-			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x-1);
-			
-			val = p1 * 0.5 + p3 * 0.25 + p4 * 0.25;
+			const float p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const float p3 = frame.at<uint16_t>(px.y+1, px.x);
+			const float p4 = frame.at<uint16_t>(px.y-1, px.x);
+
+			//val = p1 * 0.5 + p3 * 0.25 + p4 * 0.25;
+			val = (p1 + p3 + p4)/3;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.x==0 && px.y==HEIGHT-1){
 			//lower left corner
-			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
-			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
-			
-			val = p2 * 0.5 + p4 * 0.5;
+			const float p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const float p4 = frame.at<uint16_t>(px.y-1, px.x);
+
+			//val = p2 * 0.5 + p4 * 0.5;
+			val = (p2 + p4)/2;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.y==HEIGHT-1){
 			//bottom side
-			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
-			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
-			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
-			
-			val = p1 * 0.25 + p2 * 0.25 + p4 * 0.5;
+			const float p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const float p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const float p4 = frame.at<uint16_t>(px.y-1, px.x);
+
+			//val = p1 * 0.25 + p2 * 0.25 + p4 * 0.5;
+			val = (p1 + p2 + p4)/3;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.x==0 && px.y==0){
 			//Upper left corner
-			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
-			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
-			val = p2 * 0.5 + p3 * 0.5;
+			const float p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const float p3 = frame.at<uint16_t>(px.y+1, px.x);
+
+			//val = p2 * 0.5 + p3 * 0.5;
+			val = (p2 + p3)/2;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.x==0){
 			//left side
-			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
-			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
-			const uint16_t p4 = frame.at<uint16_t>(px.y-1, px.x);
-			
-			val = p2 * 0.5 + p3 * 0.25 + p4 * 0.25;
+			const float p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const float p3 = frame.at<uint16_t>(px.y+1, px.x);
+			const float p4 = frame.at<uint16_t>(px.y-1, px.x);
+
+			//val = p2 * 0.5 + p3 * 0.25 + p4 * 0.25;
+			val = (p2 + p3 + p4)/3;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 		else if(px.y==0){
 			//top side
-			const uint16_t p1 = frame.at<uint16_t>(px.y, px.x-1);
-			const uint16_t p2 = frame.at<uint16_t>(px.y, px.x+1);
-			const uint16_t p3 = frame.at<uint16_t>(px.y+1, px.x);
-			
-			val = p1 * 0.25 + p2 * 0.25 + p3 * 0.5;
+			const float p1 = frame.at<uint16_t>(px.y, px.x-1);
+			const float p2 = frame.at<uint16_t>(px.y, px.x+1);
+			const float p3 = frame.at<uint16_t>(px.y+1, px.x);
+
+			//val = p1 * 0.25 + p2 * 0.25 + p3 * 0.5;
+			val = (p1 + p2 + p3)/3;
 			frame.at<uint16_t>(px) = uint16_t(val);
 		}
 	}

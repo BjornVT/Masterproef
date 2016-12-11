@@ -34,13 +34,19 @@ class caminterface {
 		void frame_get_one(uint8_t *frame);
 };
 
-class seekCam {
+class seekCam
+{
 	private:
 		class caminterface _cam;
+		
+		bool isOpen = false;
+		int frameCounter;
+		int level_shift = 0x4000;
+		vector<cv::Point> bp_list;
 		cv::Mat calib;
 		int level_shift = 7550; 
 		uint8_t data[WIDTH*HEIGHT*2] = {0};
-		vector<cv::Point> bp_list;
+		
 		
 		void buildBPList();
 		
@@ -49,12 +55,19 @@ class seekCam {
 	public:
 		seekCam();
 		~seekCam();
+		bool open();
+		bool isOpened();
 		void release();
 		bool grab();
-		void retrieve(cv::OutputArray _dst);
-		void read(cv::OutputArray _dst);
-		cv::Mat * getCalib();
-		void filterBP(cv::Mat frame);		
+		bool retrieve(cv::OutputArray _dst);
+		bool read(cv::OutputArray _dst);
+		bool retrieveRaw(cv::OutputArray _dst);
+		double get(int propId);
+		bool set(int propId, double value);
+		double getTemp(cv::Point pt);
+		seekCam& operator >> (cv::UMat& image);
+		seekCam& operator >> (cv::Mat& image);
+		
 		
 };
 

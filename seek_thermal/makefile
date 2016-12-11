@@ -4,14 +4,18 @@ SOURCEDIR = .
 BUILDDIR = build
 #SOURCES = $(wildcard $(SOURCEDIR)/*.cpp)
 LIB_SOURCES = seek.cpp
-TEST_SOURCES = seek-test.cpp
-CALIB_SOURCES = seek-calib.cpp
-RECORD_SOURCES = seek-record.cpp
+TEST_SOURCES = seek-test.cpp camSettings.cpp
+CALIB_SOURCES = seek-calib.cpp readSettings.cpp camSettings.cpp
+RECORD_SOURCES = seek-record.cpp camSettings.cpp
+CALIBTEST_SOURCES = testCalib.cpp camSettings.cpp
+RESCALE_SOURCES = rescale.cpp camSettings.cpp
 
 LIB_OBJECTS = $(patsubst %.cpp,build/%.o,$(LIB_SOURCES))
 TEST_OBJECTS= $(patsubst %.cpp,build/%.o,$(TEST_SOURCES))
 CALIB_OBJECTS = $(patsubst %.cpp,build/%.o,$(CALIB_SOURCES))
 RECORD_OBJECTS = $(patsubst %.cpp,build/%.o,$(RECORD_SOURCES))
+CALIBTEST_OBJECTS = $(patsubst %.cpp,build/%.o,$(CALIBTEST_SOURCES))
+RESCALE_OBJECTS = $(patsubst %.cpp,build/%.o,$(RESCALE_SOURCES))
 OBJECTS = $(patsubst %.cpp,build/%.o,$(wildcard $(SOURCEDIR)/*.cpp))
 
 LIB = $(BUILDDIR)/libseek.a
@@ -19,17 +23,20 @@ LIB = $(BUILDDIR)/libseek.a
 EXECUTABLE_TEST = $(BUILDDIR)/seek-test
 EXECUTABLE_CALIB = $(BUILDDIR)/seek-calib
 EXECUTABLE_RECORD = $(BUILDDIR)/seek-record
+EXECUTABLE_CALIBTEST = $(BUILDDIR)/calibTest
+EXECUTABLE_RESCALE = $(BUILDDIR)/rescale
 
 LIBS_DIRS = -L$(BUILDDIR)
-LIBS = -lusb-1.0 -lseek $(shell pkg-config --libs opencv)
+LIBS = -lusb-1.0 -pthread -lseek $(shell pkg-config --libs opencv)
 INCLUDE_DIRS = -I/usr/include/libusb-1.0 -I/usr/include/opencv
 
-CFLAGS = -Wall
-LDFLAGS = 
+CFLAGS = -Wall -g
+LDFLAGS = -g
 ARFLAGS = ru
 AR = ar
 CC = g++
 RM = rm
+
 
 #-----------------------------------------
 
@@ -49,11 +56,17 @@ $(EXECUTABLE_CALIB): $(OBJECTS) $(LIB)
 	@echo linken
 	$(CC) $(LDFLAGS) $(CALIB_OBJECTS) -o $(EXECUTABLE_CALIB) $(INCLUDE_DIRS) $(LIBS_DIRS) $(LIBS)
 
+$(EXECUTABLE_CALIBTEST): $(OBJECTS) $(LIB)
+	@echo linken
+	$(CC) $(LDFLAGS) $(CALIBTEST_OBJECTS) -o $(EXECUTABLE_CALIBTEST) $(INCLUDE_DIRS) $(LIBS_DIRS) $(LIBS)
 
 $(EXECUTABLE_RECORD): $(OBJECTS) $(LIB)
 	@echo linken
-	$(CC) $(LDFLAGS) $(RECORD_OBJECTS) -o $(EXECUTABLE_RECORD) $(INCLUDE_DIRS) $(LIBS_DIRS) $(LIBS)
+	$(CC) $(LDFLAGS) $(RECORD_OBJECTS) -o $(EXECUTABLE_RECORD) $(INCLUDE_DIRS) $(LIBS_DIRS) $(LIBS)	
 	
+$(EXECUTABLE_RESCALE): $(OBJECTS) $(LIB)
+	@echo linken
+	$(CC) $(LDFLAGS) $(RESCALE_OBJECTS) -o $(EXECUTABLE_RESCALE) $(INCLUDE_DIRS) $(LIBS_DIRS) $(LIBS)	
 
 $(OBJECTS): $(BUILDDIR)/%.o : $(SOURCEDIR)/%.cpp
 	@echo building $@
@@ -88,9 +101,23 @@ startCalib: $(EXECUTABLE_CALIB)
 startRecord: $(EXECUTABLE_RECORD)	
 	@echo starting $(EXECUTABLE_RECORD)
 	@echo ------------------------------------
-	-@./$(EXECUTABLE_RECORD) 10
+	-@./$(EXECUTABLE_RECORD)
 	@echo ------------------------------------
 	@echo Stopping program
+	
+startCalibTest: $(EXECUTABLE_CALIBTEST)	
+	@echo starting $(EXECUTABLE_CALIBTEST)
+	@echo ------------------------------------
+	-@./$(EXECUTABLE_CALIBTEST) 
+	@echo ------------------------------------
+	@echo Stopping program	
+	
+startScale: $(EXECUTABLE_RESCALE)	
+	@echo starting $(EXECUTABLE_RESCALE)
+	@echo ------------------------------------
+	-@./$(EXECUTABLE_RESCALE) out/rgb/rgb.mp4 out/lwir/lwir.mp4 calib.yml.bkp
+	@echo ------------------------------------
+	@echo Stopping program	
 	
 
 clean:
@@ -99,6 +126,8 @@ clean:
 	-@$(RM) $(EXECUTABLE_TEST) 2>/dev/null
 	-@$(RM) $(EXECUTABLE_CALIB) 2>/dev/null
 	-@$(RM) $(EXECUTABLE_RECORD) 2>/dev/null
+	-@$(RM) $(EXECUTABLE_CALIBTEST) 2>/dev/null
+	-@$(RM) $(EXECUTABLE_RESCALE) 2>/dev/null
 
 
 help:

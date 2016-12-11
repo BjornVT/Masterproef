@@ -413,8 +413,7 @@ bool seekCam::open()
 bool seekCam::open(const char fileName[])
 {
 	bugprintf("\n");
-	
-	double minVal;
+
 	Mat in;
 	
 	in = imread(fileName, CV_LOAD_IMAGE_ANYDEPTH );
@@ -524,7 +523,7 @@ bool seekCam::retrieveRaw(cv::OutputArray _dst)
 {
 	_dst.create( HEIGHT, WIDTH, CV_16SC1);
     Mat out = _dst.getMat();
-	Mat *cal = getCalib();
+	//Mat *cal = getCalib();
 
 	Mat frame(HEIGHT, WIDTH, CV_16SC1, reinterpret_cast<uint16_t*>(data), Mat::AUTO_STEP);
 	/*frame.convertTo(frame, CV_32SC1);

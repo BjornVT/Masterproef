@@ -594,8 +594,8 @@ Mat *seekCam::getCalib4()
 
 void seekCam::buildBPList()
 {
-	ofstream myfile;
-	myfile.open ("bp2.txt");
+	//ofstream myfile;
+	//myfile.open ("bp.txt");
 
 	bp_list.clear();
 	bp_list.push_back(Point(1, 0)); /* byte with temp vaue ?? */
@@ -603,12 +603,12 @@ void seekCam::buildBPList()
 		for(int x=0; x<calib4.cols-2; x++){ /* Last 2 cols are a zero padding and some sort of mean */
 			if(calib4.at<int32_t>(y, x) <= 30){	/* Status bit is not 0 && 1 calib frame as framenr 22*/
 				bp_list.push_back(Point(x, y));
-				myfile << Point(x, y) << endl;
+				//myfile << Point(x, y) << endl;
 			}
 		}
 	}
 
-  myfile.close();
+  //myfile.close();
 
 }
 
